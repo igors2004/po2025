@@ -1,0 +1,518 @@
+
+using System;
+
+namespace lab1.App
+
+{
+    class Ubezpieczenia
+    {
+        private string _waznosc;
+        private double _cenaUbezp;
+        private string _firma;
+        private int _doswiadczenie;
+        //private Car[] _cars;
+
+        public string Waznosc
+        {
+            get { return _waznosc; }
+            set { _waznosc = value; }
+        }
+
+        public double Cena
+        {
+            get { return _cenaUbezp; }
+            set { _cenaUbezp = value; }
+        }
+
+        public string Firma
+        {
+            get { return _firma; }
+            set { _firma = value; }
+        }
+        public int Doswiadczenie
+        {
+            get { return _doswiadczenie; }
+            set { _doswiadczenie = value; }
+        }
+
+        public Ubezpieczenia()
+        {
+            _waznosc = "wazna";
+            _cenaUbezp = 0;
+            _firma = "nieznana";
+            _doswiadczenie = 0;
+        }
+        public Ubezpieczenia(string waznosc, int cena, string firma, int doswiadczenie)
+        {
+            _waznosc = waznosc;
+            _cenaUbezp = cena;
+            _firma = firma;
+            _doswiadczenie = doswiadczenie;
+        }
+
+        public double Calculate(double carPrice)
+        {
+            double cost = (_doswiadczenie * carPrice) / 1000.00;
+            return cost;
+        }
+
+        //public override string ToString()
+        //{
+        //    string garaz = $"Adress:{_adress}, Capacity:{_capacity}, Cars_Count:{_carsCount}";
+
+        //    if (_carsCount > 0)
+        //    {
+        //        foreach (Car car in _cars)
+        //        {
+        //            if (car != null)
+        //            {
+        //                garaz += car.ToString();
+        //            }
+        //        }
+        //    }
+        //    else
+        //    {
+        //        garaz += "nie ma samochodow w garazu";
+
+        //    }
+        //    return garaz;
+        //}
+
+
+        //public override string ToString()
+        //{
+        //   string auto $"Waznosc: {_waznosc}, Cena: {_cenaUbezp}, Firma: {_firma}, Doswiadczenie: {_doswiadczenie}";
+
+        //    foreach (Car car in _cars)
+        //    {
+        //        if (car != null)
+        //        {
+        //            auto += car.ToString();
+                   
+        //        }
+        //    }
+        //    return auto;
+        //}
+
+        public override string ToString()
+        {
+            return $"Waznosc: {_waznosc}, Cena: {_cenaUbezp}, Firma: {_firma}, Doswiadczenie: {_doswiadczenie}";
+
+          
+        }
+        public void Details()
+        {
+            Console.WriteLine(this.ToString());
+        }
+
+    }
+
+    class Car
+    {
+        private string? _brand;
+        private string? _model;
+        private int _doorCount;
+        private double _engineVolume;
+        private double _avgConsump;
+        static private int _carCount = 0;
+        private string _registrationNumber;
+        public int _cenaUbezp;
+
+
+        public string Brand
+        {
+            get { return _brand; }
+            set { _brand = value; }
+        }
+        public string Model
+        {
+            get { return _model; }
+            set { _model = value; }
+        }
+        public int DoorCount
+        {
+            get { return _doorCount; }
+            set { _doorCount = value; }
+        }
+        public double EngineVolume
+        {
+            get { return _engineVolume; }
+            set { _engineVolume = value; }
+        }
+        public double AvgConsump
+        {
+            get { return _avgConsump; }
+            set { _avgConsump = value; }
+        }
+        public string RegistrationNumber
+        {
+            get { return _registrationNumber; }
+            set { _registrationNumber = value; }
+        }
+
+        public int CenaUbezp
+        {
+            get { return _cenaUbezp; }
+            set { _cenaUbezp = value; }
+        }
+
+
+        public Car()
+        {
+            _brand = "nieznana";
+            _model = "nieznany";
+            _doorCount = 0;
+            _engineVolume = 0.0;
+            _avgConsump = 0.0;
+            _carCount++;
+        }
+
+        public Car(string brand, string model, int doorCount, double engineVolume, double avgConsump, string registrationNumber)
+        {
+            _brand = brand;
+            _model = model;
+            _doorCount = doorCount;
+            _engineVolume = engineVolume;
+            _avgConsump = avgConsump;
+            _registrationNumber = registrationNumber;
+            _carCount++;
+            
+        }
+
+        public double CalculateConsump(double roadLength)
+        {
+            double consump = (_avgConsump * roadLength) / 100.0;
+            return consump;
+        }
+
+        public double CalculateCost(double roadLength, double petrolCost)
+        {
+            double consump = CalculateConsump(roadLength);
+            double cost = consump * petrolCost;
+            return cost;
+        }
+        public override string ToString()
+        {
+            return $"Car | Brand: {_brand}, Model: {_model}, NumOfDoors:{_doorCount}, EngineVol: {_engineVolume}, AvgConsump:{_avgConsump}, RegistrationNumber: {_registrationNumber}, CenaUbezpieczenia: {_cenaUbezp} ";
+        }
+        public void Details()
+        {
+            Console.WriteLine(this.ToString());
+        }
+
+        public static void DisplayCarCount()
+        {
+            Console.WriteLine($"ilosc samochodow: {_carCount} ");
+        }
+    }
+
+  
+
+    class Garage
+    {
+        private string? _adress;
+        private int _capacity;
+        private int _carsCount = 0;
+        private Car[] _cars;
+
+        public string Adress
+        {
+            get { return _adress; }
+            set { _adress = value; }
+        }
+        public int Capacity
+        {
+            get { return _capacity; }
+            set
+            {
+                _capacity = value;
+
+                _cars = new Car[value];
+            }
+        }
+
+        public Garage()
+        {
+            _adress = "nieznany";
+            _capacity = 0;
+            _cars = null;
+        }
+
+        public Garage(string? adress, int capacity)
+        {
+            Adress = adress;
+            Capacity = capacity;
+            _cars = new Car[_capacity];
+        }
+
+        public void CarIn(Car newCar)
+        {
+            if (_carsCount == _capacity)
+            {
+                Console.WriteLine("garaz jest pelny");
+            }
+            else
+            {
+                _cars[_carsCount] = newCar;
+                _carsCount++;
+
+                Console.WriteLine("samochod zostal dodany do garazu");
+            }
+        }
+
+        public Car CarOut()
+        {
+            if (_carsCount == 0)
+            {
+                Console.WriteLine("garaz jest pusty");
+                return null;
+            }
+            else
+            {
+                Car lastCar = _cars[_carsCount - 1];
+                lastCar = null;
+                _carsCount--;
+                Console.WriteLine("samochod wyprowadzony z garazu");
+                return lastCar;
+
+
+            }
+        }
+        public override string ToString()
+        {
+            string garaz = $"Adress:{_adress}, Capacity:{_capacity}, Cars_Count:{_carsCount}";
+
+            if (_carsCount > 0)
+            {
+                foreach (Car car in _cars)
+                {
+                    if (car != null)
+                    {
+                        garaz += car.ToString();
+                    }
+                }
+            }
+            else
+            {
+                garaz += "nie ma samochodow w garazu";
+
+            }
+            return garaz;
+        }
+
+        public void Details()
+        {
+            Console.WriteLine(this.ToString());
+        }
+    }
+
+    class Person
+    {
+        private string[] _registrationNumbers;
+        public int _MaxCarCount;
+        public string _FirstName;
+        public string _LastName;
+        public string _Address;
+        public int _CarsCount;
+
+
+        public Person()
+        {
+            _registrationNumbers = null;
+            _MaxCarCount = 3;
+            _FirstName = "nieznane";
+            _LastName = "nieznane";
+            _Address = "nieznany";
+            _CarsCount = 0;
+        }
+
+        public int MaxCarCount
+        {
+            get { return _MaxCarCount; }
+            set { _MaxCarCount = value; }
+        }
+
+        public string FirstName
+        {
+            get { return _FirstName; }
+            set { _FirstName = value; }
+        }
+
+        public string LastName
+        {
+            get { return _LastName; }
+            set { _LastName = value; }
+        }
+
+        public string Address
+        {
+            get { return _Address; }
+            set { _Address = value; }
+        }
+
+        public int CarsCount
+        {
+            get { return _CarsCount; }
+            set { _CarsCount = value; }
+        }
+
+        public Person(string firstName, string lastName, string address, Car[] cars)
+        {
+            FirstName = firstName;
+            LastName = lastName;
+            Address = address;
+            _registrationNumbers = new string[_MaxCarCount];
+            _CarsCount = 0;
+
+        }
+
+        public void AddCarRegistrationNumber(string registrationNumber)
+        {
+            if (_CarsCount < _MaxCarCount)
+            {
+                if (_registrationNumbers == null)
+                {
+                    _registrationNumbers = new string[_MaxCarCount];
+                }
+
+                _registrationNumbers[_CarsCount] = registrationNumber;
+                _CarsCount++;
+            }
+            else
+            {
+                Console.WriteLine("Osiagnieto maksymalnA liczbe samochodow.");
+            }
+        }
+        public void RemoveCarRegistrationNumber(string registrationNumber)
+        {
+            if (_registrationNumbers != null && _CarsCount > 0)
+            {
+                for (int i = 0; i < _CarsCount; i++)
+                {
+                    if (_registrationNumbers[i] == registrationNumber)
+                    {
+
+                        for (int j = i; j < _CarsCount - 1; j++)
+                        {
+                            _registrationNumbers[j] = _registrationNumbers[j + 1];
+                        }
+
+
+                        _registrationNumbers[_CarsCount - 1] = null;
+                        _CarsCount--;
+                        Console.WriteLine("Usunieto numer rejestracyjny");
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("Brak numerow rejestracyjnych do usuniecia");
+            }
+        }
+
+        public override string ToString()
+        {
+            string osoba = $"FirstName: {_FirstName}, LastName: {_LastName}, Address: {_Address}, CarsCount: {_CarsCount}";
+
+            if (_CarsCount > 0)
+            {
+                osoba += "numer rejestracyjny: ";
+                for (int i = 0; i < _CarsCount; i++)
+                {
+                    if (i > 0)
+                    {
+                        osoba += ", ";
+                    }
+                    osoba += _registrationNumbers[i];
+                }
+            }
+            else
+            {
+                osoba += ", brak numerow rejestracyjnych";
+            }
+            return osoba;
+        }
+        public void Details()
+        {
+            Console.WriteLine(this.ToString());
+        }
+
+
+        //public override string ToString()
+        //{
+        //    string garaz = $"Adress:{_adress}, Capacity:{_capacity}, Cars_Count:{_carsCount}";
+
+        //    if (_carsCount > 0)
+        //    {
+        //        foreach (Car car in _cars)
+        //        {
+        //            if (car != null)
+        //            {
+        //                garaz += car.ToString();
+        //            }
+        //        }
+        //    }
+        //    else
+        //    {
+        //        garaz += "nie ma samochodow w garazu";
+
+        //    }
+        //    return garaz;
+        //}
+    }
+
+    
+
+
+
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Car car1 = new Car();
+            car1.Details();
+            car1.Brand = "Fiat";
+            car1.Model = "126p";
+            car1.DoorCount = 2;
+            car1.EngineVolume = 650;
+            car1.AvgConsump = 6.0;
+            car1.RegistrationNumber = "KR12345";
+            car1.Details();
+            Car car2 = new Car("Syrena", "105", 2, 0.8f, 7.6d, "WE1234");
+            car2.Details();
+            Console.WriteLine(car1);
+            double routeConsumption = car2.CalculateConsump(500);
+            Console.WriteLine($"Route consumption: {routeConsumption} l");
+            double routeCost = car2.CalculateCost(500, 5);
+            Console.WriteLine($"Route cost: {routeCost}");
+            Car.DisplayCarCount();
+            Console.WriteLine("\r\n=========================================\r\n");
+
+
+            Garage garage1 = new Garage();
+            garage1.Adress = "ul. Garażowa 1";
+            garage1.Capacity = 1;
+            Garage garage2 = new Garage("ul. Garażowa 2", 2);
+            garage1.CarIn(car1);
+            garage1.Details();
+            garage1.CarIn(car2);
+            garage2.CarIn(car2);
+            var movedCar = garage1.CarOut();
+            garage2.CarIn(movedCar);
+            garage2.Details();
+            garage1.Details();
+            garage2.CarOut();
+            garage2.Details();
+            garage2.CarOut();
+            garage2.CarOut();
+            garage2.Details();
+            garage1.Details();
+            Console.WriteLine("\r\n=========================================\r\n");
+        }
+    }
+}
+
+
+
