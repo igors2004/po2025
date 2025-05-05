@@ -1,0 +1,497 @@
+using System;
+using System.Text.RegularExpressions;
+using System.Collections.Generic;
+using lab2;
+using Microsoft.VisualBasic.FileIO;
+using System.Numerics;
+
+namespace lab2
+
+{
+    public class Person
+    {
+        protected string _firstName;
+        protected string _lastName;
+        protected DateTime? _dateOfBirth;
+
+        public string FirstName
+        {
+            get { return _firstName; }
+            set { _firstName = value; }
+        }
+
+        public string LastName
+        {
+            get { return _lastName; }
+            set { _lastName = value; }
+        }
+
+        public DateTime? DateOfBirth
+        {
+            get { return _dateOfBirth; }
+            set { _dateOfBirth = value; }
+        }
+
+        public Person()
+        {
+            _firstName = "nieznane";
+            _lastName = "nieznane";
+            _dateOfBirth = null;
+
+        }
+
+        public Person(string firstName, string lastName, DateTime dateOfBirth)
+        {
+            _firstName = firstName;
+            _lastName = lastName;
+            _dateOfBirth = dateOfBirth;
+        }
+
+        public override string ToString()
+        {
+            return $"First Name: {_firstName}, Last Name: {_lastName}, Date of birth: {_dateOfBirth}";
+        }
+
+        public virtual void Details()
+        {
+            Console.WriteLine(this.ToString());
+        }
+    }
+
+    public class Student : Person
+    {
+        private int _year;
+        private int _group;
+        private int _indexId;
+        private IList<Grade> _grades;
+
+
+        public int Year
+        {
+            get { return _year; }
+            set { _year = value; }
+        }
+
+        public int Group
+        {
+            get { return _group; }
+            set { _group = value; }
+        }
+
+        public int IndexId
+        {
+            get { return _indexId; }
+            set { _indexId = value; }
+        }
+
+        public IList<Grade> Grades
+        {
+            get { return _grades; }
+        }
+
+        public Student()
+        {
+            _year = 0;
+            _group = 0;
+            _indexId = 0;
+            _grades = new List<Grade>();
+
+        }
+        public Student(string firstName, string lastName, DateTime dateOfBirth, int year, int group, int indexId)
+            : base(firstName, lastName, dateOfBirth)
+        {
+            _year = year;
+            _group = group;
+            _indexId = indexId;
+            _grades = new List<Grade>();
+        }
+
+        public void AddGrade(string subject, double value, DateTime date)
+        {
+            Grade newGrade = new Grade(subject, value, date);
+            _grades.Add(newGrade);
+        }
+
+        public void AddGrade(Grade grade)
+        {
+            if (grade != null)
+            {
+                _grades.Add(grade);
+            }
+
+        }
+
+        public void DisplayGrades()
+        {
+            if (_grades.Count == 0)
+            {
+                Console.WriteLine("brak ocen");
+            }
+            else
+            {
+                Console.WriteLine("oceny studenta: ");
+                foreach (var grade in _grades)
+                {
+                    Console.WriteLine($"{grade.SubjectName}: {grade.Value}: ({grade.Date?.ToShortDateString()})");
+                }
+            }
+        }
+
+        public void DisplayGrades(string subjectName)
+        {
+            foreach (var grade in _grades)
+            {
+                if (grade.SubjectName == subjectName)
+                {
+                    Console.WriteLine($"{grade.SubjectName}: {grade.Value}: ({grade.Date?.ToShortDateString()})");
+                }
+                else
+                {
+                    Console.WriteLine("nie ma ocen z tego przedmiotu");
+                }
+            }
+        }
+
+        public void DeleteGrade(string subjectName, double value, DateTime date)
+        {
+            var gradeToRemowe = _grades.FirstOrDefault(g => g.SubjectName == subjectName && g.Value == value && g.Date == date);
+            if (gradeToRemowe != null)
+            {
+                _grades.Remove(gradeToRemowe);
+                Console.WriteLine("ocena zostala usunieta");
+            }
+            else
+            {
+                Console.WriteLine("nie znaleziono pasujacej oceny");
+            }
+        }
+
+        public void DeleteGrade(Grade grade)
+        {
+            if (_grades.Remove(grade))
+            {
+                Console.WriteLine("ocena zostala usunieta");
+            }
+            else
+            {
+                Console.WriteLine("ocena nie zostala usunieta");
+            }
+        }
+
+        public void DeleteGrades()
+        {
+            _grades.Clear();
+        }
+
+        public void DeleteGrades(string subjectName)
+        {
+            List<Grade> toRemove = new List<Grade>();
+
+            foreach (var grade in _grades)
+            {
+                if (grade.SubjectName == subjectName)
+                {
+                    toRemove.Add(grade);
+                }
+            }
+
+            foreach (var grade in toRemove)
+            {
+                _grades.Remove(grade);
+            }
+
+            Console.WriteLine($"Usunięto {toRemove.Count} ocen z przedmiotu: {subjectName}");
+        }
+
+        public override string ToString()
+        {
+
+            string studentInfo = $"{base.ToString()}, Year: {_year}, Group: {_group}, IndexId: {_indexId}, Grades: {string.Join(", ", _grades)}";
+
+            if (_grades.Count == 0)
+            {
+                studentInfo += "brak ocen";
+            }
+            else
+            {
+                foreach (var grade in _grades)
+                {
+                    studentInfo += $"{grade.SubjectName}: {grade.Value} ({grade.Date?.ToShortDateString()})";
+                }
+            }
+            return studentInfo;
+        }
+
+    }
+
+    public class Player : Person
+    {
+        private string? _position;
+        private string? _club;
+        private int _scoredGoals;
+
+        public string? Position
+        {
+            get { return _position; }
+            set { _position = value; }
+        }
+        public string? Club
+        {
+            get { return _club; }
+            set { _club = value; }
+        }
+        public int ScoredGoals
+        {
+            get { return _scoredGoals; }
+            set { _scoredGoals = value; }
+        }
+
+        public Player()
+        {
+            _position = null;
+            _club = null;
+            _scoredGoals = 0;
+        }
+        public Player(string firstName, string lastName, DateTime dateOfBirth, string position, string club, int scoredGoals) : base(firstName, lastName, dateOfBirth)
+        {
+            _position = position;
+            _club = club;
+            _scoredGoals = scoredGoals;
+        }
+
+        public override string ToString()
+        {
+            return $"{base.ToString()}, Position: {_position}, Club: {_club}, Scored Goals: {_scoredGoals} ";
+        }
+
+        public virtual void ScoreGoal()
+        {
+            _scoredGoals++;
+        }
+
+
+    }
+
+    public class HandballPlayer : Player
+    {
+        public HandballPlayer(string firstName, string lastName, DateTime dateOfBirth, string position, string club, int scoredGoals) : base(firstName, lastName, dateOfBirth, position, club, scoredGoals)
+        {
+
+        }
+        public override void ScoreGoal()
+        {
+            base.ScoreGoal();
+            Console.WriteLine("handball player scored goal!");
+        }
+
+    }
+    public class FootballPlayer : Player
+    {
+        public FootballPlayer(string firstName, string lastName, DateTime dateOfBirth, string position, string club, int scoredGoals) : base(firstName, lastName, dateOfBirth, position, club, scoredGoals)
+        {
+
+        }
+        public override void ScoreGoal()
+        {
+            base.ScoreGoal();
+            Console.WriteLine("football player scored goal!");
+        }
+
+    }
+
+    public class Grade
+    {
+        private string? _subjectName;
+        private DateTime? _date;
+        private double _value;
+
+
+        public string? SubjectName
+        {
+            get { return _subjectName; }
+            set { _subjectName = value; }
+        }
+        public DateTime? Date
+        {
+            get { return _date; }
+            set { _date = value; }
+        }
+        public double Value
+        {
+            get { return _value; }
+            set { _value = value; }
+        }
+        public Grade()
+        {
+            _subjectName = "nieznany";
+            _date = null;
+            _value = 0.0;
+        }
+        public Grade(string subjectName, double value, DateTime date)
+        {
+            _subjectName = subjectName;
+            _value = value;
+            _date = date;
+        }
+        public override string ToString()
+        {
+            return $"Subject Name: {_subjectName}, Date: {_date}, Value: {_value}";
+        }
+        public void Details()
+        {
+            Console.WriteLine(this.ToString());
+        }
+
+    }
+
+    class lab02
+    {
+        static void Main(string[] args)
+        {
+            //Person person1 = new Person("Adam", "Miś", new DateTime(1990, 3, 20, 12, 30, 10));
+            //Person person2 = new Student("Michał", "Kot", new DateTime(1990, 4, 13), 3, 5, 12345);
+            //Person person3 = new Player("Robert", "Lewandowski", new DateTime(1988, 10, 3), "Striker", "Bayern", 41);
+            //person1.Details();
+            //person2.Details();
+            //person3.Details();
+            //Student student = new Student("Krzysztof", "Jeż", new DateTime(1990, 12, 29), 2, 5, 54321);
+            //student.Details();
+            //((Player)person3).ScoreGoal();
+            //person3.Details();
+            //((Student)person2).AddGrade("PO", 5.0D, new DateTime(2011, 2, 20));
+            //((Student)person2).AddGrade("Bazy Danych", 5.0D, new DateTime(2011, 2, 13));
+            //person2.Details();
+            //Grade grade = new Grade("Bazy Danych", 5.0D, new DateTime(2011, 5, 1));
+            //student.AddGrade(grade);
+            //student.AddGrade("AWWW", 5.0D, new DateTime(2011, 5, 11));
+            //student.AddGrade("AWWW", 4.5D, new DateTime(2011, 4, 2));
+            //student.Details();
+            //student.DeleteGrade("AWWW", 4.5D, new DateTime(2011, 4, 2));
+            //student.Details();
+            //student.DeleteGrades("AWWW");
+            //student.Details();
+            //student.AddGrade("AWWW", 5.0D, new DateTime(2011, 4, 3));
+            //student.DeleteGrades();
+            //student.Details();
+
+            Person footballPlayer =
+                new FootballPlayer("Mateusz", "Żbik", new DateTime(1986, 8, 10), "striker", "FC Barcelona", 10);
+            Person handballPlayer =
+                new HandballPlayer("Piotr", "Kos", new DateTime(1984, 9, 14), "striker", "FC Bayern", 12);
+            footballPlayer.Details();
+            handballPlayer.Details();
+            ((Player)handballPlayer).ScoreGoal(); // rzutowanie bezpośrednie
+            (footballPlayer as Player).ScoreGoal(); // rzutowanie referencyjne
+            footballPlayer.Details();
+            handballPlayer.Details();
+
+
+        }
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//public static void topscorer(IList<Player> players)
+//{
+//    if (players.Count == 0)
+//    {
+//        Console.WriteLine("brak zawodnika z bramkami");
+//        return;
+//    }
+//    Player topscorer = players[0];
+//    foreach (var player in players)
+//    {
+//        if (player.ScoredGoals > topscorer.ScoredGoals)
+//        {
+//            topscorer = player;
+//        }
+//    }
+//    Console.WriteLine($"najlepszy strzelec: {topscorer.FirstName} {topscorer.LastName} {topscorer.ScoredGoals} goli ");
+
+//}
+
+
+
+
+
+//IList<Player> players = new List<Player>
+//            {
+//                 new FootballPlayer("Mateusz", "Żbik", new DateTime(1986, 8, 10), "striker", "FC Barcelona", 10),
+//                 new HandballPlayer("Piotr", "Kos", new DateTime(1984, 9, 14), "striker", "FC Bayern", 12)
+//            };
+//Player.topscorer(players);
