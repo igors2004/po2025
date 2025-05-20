@@ -1,0 +1,1491 @@
+#include <GLFW/glfw3.h>
+#include <iostream>
+#include <cmath>
+#include <GLFW/stb_image.h>
+#define M_PI 3.14159265358979323846
+#define LICZBA_TEKSTUR 3  // Zwiekszamy liczbe tekstur do 2
+unsigned int tekstury[LICZBA_TEKSTUR];
+const char* plikiTekstur[LICZBA_TEKSTUR] = {
+    "E:/Programowanie obiektowe pcz/sprgraf/container.jpg",
+    "E:/Programowanie obiektowe pcz/sprgraf/Wood.tga",
+    "E:/Programowanie obiektowe pcz/sprgraf/Ocean.tga"
+
+};
+using namespace std;
+
+// Zmienna globalna do kontrolowania otwarcia drzwiczek
+float katOtwarciaDrzwiczek = 0.0f; // kat w radianach
+float katOtwarciaPokrywki1 = 0.0f; // kat w radianach dla pierwszego pudelka
+float katOtwarciaPokrywki2 = 0.0f; // kat w radianach dla drugiego pudelka
+// Zmienne globalne do kontrolowania swiatel
+bool glowneSwiatloWlaczone = true;
+bool reflektorWlaczone = false;
+float intensywnoscGlownegoSwiatla = 1.0f;
+float pralkaPozX = 0.0f;   // Pozycja X
+float pralkaPozY = 0.0f;   // Pozycja Y
+float pralkaPozZ = 0.0f;   // Pozycja Z
+float pralkaRotX = 0.0f;   // Rotacja wokol osi X (w stopniach)
+float pralkaRotY = 0.0f;   // Rotacja wokol osi Y (w stopniach)
+float pralkaRotZ = 0.0f;   // Rotacja wokol osi Z (w stopniach)
+bool pralkaAnimacja = true; // Czy pralka ma sie automatycznie obracać
+bool pudelko1Animacja = true; // Czy pudelko 1 ma sie automatycznie obracać
+bool pudelko2Animacja = true; // Czy pudelko 2 ma sie automatycznie obracać
+bool rzutowaniePerspektywiczne = true;  // Przelacznik miedzy rzutowaniem perspektywicznym a rownoleglym
+float fov = 45.0f;                      // Kat widzenia dla rzutowania perspektywicznego (w stopniach)
+float skalaRzutuRownolegego = 8.0f;
+float kameraPozX = 0.0f;
+float kameraPozY = 0.0f;
+float kameraPozZ = 10.0f;  // Startujemy odsunieci od sceny
+float kameraKatX = 0.0f;   // Kat patrzenia w gore/dol (pochylenie)
+float kameraKatY = 0.0f;   // Kat patrzenia w lewo/prawo (obrot)
+float kameraPredkosc = 0.3f; // Predkosć poruszania sie kamery
+bool trybKamery = false;   // Flaga do wlaczania/wylaczania trybu kamery
+float kameraOdleglosc = 10.0f; // Odleglosć kamery od punktu centralnego w trybie orbitalnym
+bool trybOrbitalny = false;
+bool ukrywaniePowierzchni = true;     // Domyslnie wlaczone culling
+int trybUkrywania = GL_BACK;          // Domyslnie ukrywamy tylko tylne powierzchnie
+bool testowanieGlebi = true;          // Domyslnie wlaczone testowanie glebi
+int trybTestuGlebi = GL_LESS;         // Domyslny sposob testowania glebi
+bool zgodnieZRuchemWskazowek = false; // Domyslnie nawijanie przeciwnie do ruchu wskazowek zegara
+int trybWypelniania = GL_FILL;        // Domyslnie pelne wypelnienie
+bool cieniowaniePlaskie = false;
+
+
+
+// Funkcja aktualizujaca ustawienia renderowania
+void aktualizujUstawieniaRenderowania() {
+    // Ukrywanie powierzchni niewidocznych
+    if (ukrywaniePowierzchni) {
+        glEnable(GL_CULL_FACE);
+        glCullFace(trybUkrywania); // GL_BACK, GL_FRONT lub GL_FRONT_AND_BACK
+    }
+    else {
+        glDisable(GL_CULL_FACE);
+    }
+
+    // Testowanie glebi
+    if (testowanieGlebi) {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(trybTestuGlebi); // GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL, GL_EQUAL, GL_NOTEQUAL, GL_ALWAYS
+    }
+    else {
+        glDisable(GL_DEPTH_TEST);
+    }
+
+    // Nawijanie wielokatow
+    if (zgodnieZRuchemWskazowek) {
+        glFrontFace(GL_CW);  // Zgodnie z ruchem wskazowek zegara
+    }
+    else {
+        glFrontFace(GL_CCW); // Przeciwnie do ruchu wskazowek zegara (domyslne)
+    }
+
+    // Tryb wypelniania
+    glPolygonMode(GL_FRONT_AND_BACK, trybWypelniania); // GL_FILL, GL_LINE, GL_POINT
+
+    // Tryb cieniowania
+    if (cieniowaniePlaskie) {
+        glShadeModel(GL_FLAT);  // Cieniowanie plaskie (jednolite)
+    }
+    else {
+        glShadeModel(GL_SMOOTH); // Cieniowanie gladkie (plynne przejscia)
+    }
+}
+void inicjalizujTekstury() {
+    glEnable(GL_TEXTURE_2D);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+    glGenTextures(LICZBA_TEKSTUR, tekstury);
+
+    for (int i = 0; i < LICZBA_TEKSTUR; i++) {
+        GLint szerokoscTekstury, wysokoscTekstury, liczbaKanalow;
+        glBindTexture(GL_TEXTURE_2D, tekstury[i]);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_set_flip_vertically_on_load(true);
+
+        // Dodaj pelna scieżke do pliku - może być problem ze scieżka wzgledna
+        cout << "Proba zaladowania tekstury: " << plikiTekstur[i] << endl;
+        unsigned char* dane = stbi_load(plikiTekstur[i], &szerokoscTekstury, &wysokoscTekstury, &liczbaKanalow, 0);
+
+        if (dane) {
+            GLenum format;
+            if (liczbaKanalow == 1)
+                format = GL_RED;
+            else if (liczbaKanalow == 3)
+                format = GL_RGB;
+            else if (liczbaKanalow == 4)
+                format = GL_RGBA;
+
+            glTexImage2D(GL_TEXTURE_2D, 0, format, szerokoscTekstury, wysokoscTekstury, 0, format, GL_UNSIGNED_BYTE, dane);
+
+            cout << "SUKCES: Zaladowano teksture: " << plikiTekstur[i] << " (" << szerokoscTekstury << "x" << wysokoscTekstury << "), kanaly: " << liczbaKanalow << endl;
+        }
+        else {
+            cout << "BlaD: Nie udalo sie zaladować tekstury: " << plikiTekstur[i] << endl;
+            // Tworzenie tekstury awaryjnej, aby cos bylo widoczne
+            unsigned char awaryjnaTekstura[16][16][3];
+            for (int y = 0; y < 16; y++) {
+                for (int x = 0; x < 16; x++) {
+                    // Szachownica czerwono-biala
+                    if ((x < 8 && y < 8) || (x >= 8 && y >= 8)) {
+                        awaryjnaTekstura[y][x][0] = 200; // Czerwony
+                        awaryjnaTekstura[y][x][1] = 0;
+                        awaryjnaTekstura[y][x][2] = 0;
+                    }
+                    else {
+                        awaryjnaTekstura[y][x][0] = 255; // Bialy
+                        awaryjnaTekstura[y][x][1] = 255;
+                        awaryjnaTekstura[y][x][2] = 255;
+                    }
+                }
+            }
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 16, 16, 0, GL_RGB, GL_UNSIGNED_BYTE, awaryjnaTekstura);
+            cout << "Utworzono teksture awaryjna (szachownice)" << endl;
+        }
+
+        if (dane)
+            stbi_image_free(dane);
+    }
+}
+
+
+// Funkcja rysujaca prostokatna obudowe pralki
+void rysujProstokatnaObudowe() {
+    glBegin(GL_QUADS);
+
+    // sCIANA PRZEDNIA:
+    glNormal3d(0, 0, 1);
+    glVertex3d(1, -1, 1);
+    glVertex3d(1, 1, 1);
+    glVertex3d(-1, 1, 1);
+    glVertex3d(-1, -1, 1);
+
+    // sCIANA TYLNIA:
+    glNormal3d(0, 0, -1);
+    glVertex3d(-1, -1, -1);
+    glVertex3d(-1, 1, -1);
+    glVertex3d(1, 1, -1);
+    glVertex3d(1, -1, -1);
+
+    // sCIANA PRAWA:
+    glNormal3d(1, 0, 0);
+    glVertex3d(1, -1, -1);
+    glVertex3d(1, 1, -1);
+    glVertex3d(1, 1, 1);
+    glVertex3d(1, -1, 1);
+
+    // sCIANA LEWA:
+    glNormal3d(-1, 0, 0);
+    glVertex3d(-1, -1, 1);
+    glVertex3d(-1, 1, 1);
+    glVertex3d(-1, 1, -1);
+    glVertex3d(-1, -1, -1);
+
+    // sCIANA GoRNA:
+    glNormal3d(0, 1, 0);
+    glVertex3d(1, 1, 1);
+    glVertex3d(1, 1, -1);
+    glVertex3d(-1, 1, -1);
+    glVertex3d(-1, 1, 1);
+
+    // sCIANA DOLNA:
+    glNormal3d(0, -1, 0);
+    glVertex3d(1, -1, -1);
+    glVertex3d(1, -1, 1);
+    glVertex3d(-1, -1, 1);
+    glVertex3d(-1, -1, -1);
+
+    glEnd();
+}
+
+// Funkcja rysujaca otwor na drzwiczki w przedniej scianie pralki
+void rysujOtworNaDrzwiczki(float promien) {
+    int slices = 40;  // Liczba segmentow okregu
+    float angleStep = 2 * M_PI / slices;  // Krok katowy
+
+    // Rysujemy tylko jednolity czarny otwor bez wnetrza
+    glColor3d(0.1, 0.1, 0.1);
+    glBegin(GL_TRIANGLE_FAN);
+    glNormal3f(0, 0, 1);
+    glVertex3f(0, 0, 1.0);
+    for (int i = 0; i <= slices; ++i) {
+        float angle = i * angleStep;
+        float x = cos(angle) * promien;
+        float y = sin(angle) * promien;
+        glVertex3f(x, y, 1.0);
+    }
+    glEnd();
+}
+
+// Uproszczona funkcja rysujaca wnetrze pralki bez migotania
+void rysujWnetrzePralki(float promien) {
+    int slices = 40;
+    float angleStep = 2 * M_PI / slices;
+
+    // Rysujemy jednolite szare tlo bebna
+    glColor3d(0.5, 0.5, 0.5); // Jasny szary kolor dla lepszej widocznosci
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex3f(0, 0, 0.9); // Przesuniecie wnetrza bliżej przodu pralki
+    for (int i = 0; i <= slices; ++i) {
+        float angle = i * angleStep;
+        float x = cos(angle) * (promien - 0.1);
+        float y = sin(angle) * (promien - 0.1);
+        glVertex3f(x, y, 0.9);
+    }
+    glEnd();
+}
+
+// Funkcja rysujaca szybe drzwiczek oddzielnie
+void rysujSzybeDrzwiczek(float promien, float grubosc) {
+    int slices = 40;
+    float angleStep = 2 * M_PI / slices;
+    float wewPromien = promien - 0.1; // Grubosć ramki 0.1
+
+    // Użyj TRIANGLE_FAN zamiast POLYGON
+    glBegin(GL_TRIANGLE_FAN);
+    glNormal3f(0, 0, 1); // Normalna skierowana do przodu
+    glVertex3f(0, 0, grubosc + 0.01); // Lekko wysunieta do przodu dla unikniecia migania
+    for (int i = 0; i <= slices; ++i) {
+        float angle = i * angleStep;
+        float x = cos(angle) * wewPromien;
+        float y = sin(angle) * wewPromien;
+        glVertex3f(x, y, grubosc + 0.01);
+    }
+    glEnd();
+}
+
+// Funkcja rysujaca okragle drzwiczki pralki z ciemna szyba
+void rysujDrzwiczkiPralki(float promien, float grubosc) {
+    int slices = 40;  // Liczba segmentow okregu
+    float angleStep = 2 * M_PI / slices;  // Krok katowy
+
+    // Grubosć ramki drzwiczek
+    float gruboscRamki = 0.1;
+
+    // Rysowanie zawiasu drzwiczek używajac tylko OpenGL
+    glColor3d(0.5, 0.5, 0.5); // Szary zawias
+    glPushMatrix();
+    glTranslatef(-promien, 0, 0); // Pozycja zawiasu na lewej stronie drzwiczek
+
+    // Rysujemy cylinder jako zawias używajac tylko OpenGL
+    float zawiasPromien = 0.06;
+    float zawiasWysokosc = 0.15;
+    int zawiasSegmenty = 12;
+
+    // Boki zawiasu (cylinder)
+    glBegin(GL_QUAD_STRIP);
+    for (int i = 0; i <= zawiasSegmenty; i++) {
+        float angle = 2.0f * M_PI * static_cast<float>(i) / static_cast<float>(zawiasSegmenty);
+        float x = zawiasPromien * cos(angle);
+        float z = zawiasPromien * sin(angle);
+
+        // Normalne skierowane na zewnatrz cylindra
+        glNormal3f(0, x, z);
+
+        glVertex3f(0, x, z); // Przod cylindra
+        glVertex3f(zawiasWysokosc, x, z); // Tyl cylindra
+    }
+    glEnd();
+
+    // Przednia podstawa zawiasu (kolo)
+    glBegin(GL_TRIANGLE_FAN);
+    glNormal3f(-1, 0, 0); // Normalna skierowana w strone -x
+    glVertex3f(0, 0, 0); // srodek przedniej podstawy
+    for (int i = zawiasSegmenty; i >= 0; i--) {
+        float angle = 2.0f * M_PI * static_cast<float>(i) / static_cast<float>(zawiasSegmenty);
+        float x = zawiasPromien * cos(angle);
+        float z = zawiasPromien * sin(angle);
+        glVertex3f(0, x, z);
+    }
+    glEnd();
+
+    // Tylna podstawa zawiasu (kolo)
+    glBegin(GL_TRIANGLE_FAN);
+    glNormal3f(1, 0, 0); // Normalna skierowana w strone +x
+    glVertex3f(zawiasWysokosc, 0, 0); // srodek tylnej podstawy
+    for (int i = 0; i <= zawiasSegmenty; i++) {
+        float angle = 2.0f * M_PI * static_cast<float>(i) / static_cast<float>(zawiasSegmenty);
+        float x = zawiasPromien * cos(angle);
+        float z = zawiasPromien * sin(angle);
+        glVertex3f(zawiasWysokosc, x, z);
+    }
+    glEnd();
+
+    glPopMatrix();
+
+    // Rysowanie zewnetrznej ramki drzwiczek
+    glColor3d(0.6, 0.6, 0.65); // Szary kolor ramki (jak obudowa)
+
+    // Zewnetrzna czesć ramki (okrag)
+    glBegin(GL_QUAD_STRIP);
+    for (int i = 0; i <= slices; ++i) {
+        float angle = i * angleStep;
+        float x = cos(angle) * promien;
+        float y = sin(angle) * promien;
+
+        // Normalne skierowane promieniscie na zewnatrz
+        glNormal3f(x, y, 0);
+
+        glVertex3f(x, y, 0); // Tylna czesć ramki
+        glVertex3f(x, y, grubosc); // Przednia czesć ramki
+    }
+    glEnd();
+
+    // Tylna strona ramki (plaska czesć przylegajaca do pralki)
+    glBegin(GL_TRIANGLE_FAN);
+    glNormal3f(0, 0, -1); // Normalna skierowana do tylu
+    glVertex3f(0, 0, 0); // srodek okregu
+    for (int i = slices; i >= 0; --i) { // Odwrotna kolejnosć dla poprawnej orientacji normalnych
+        float angle = i * angleStep;
+        float x = cos(angle) * promien;
+        float y = sin(angle) * promien;
+        glVertex3f(x, y, 0);
+    }
+    glEnd();
+
+    // Przednia strona drzwiczek (plaski okrag)
+    glBegin(GL_TRIANGLE_FAN);
+    glNormal3f(0, 0, 1); // Normalna skierowana do przodu
+    glVertex3f(0, 0, grubosc); // srodek przedniego okregu
+    for (int i = 0; i <= slices; ++i) {
+        float angle = i * angleStep;
+        float x = cos(angle) * promien;
+        float y = sin(angle) * promien;
+        glVertex3f(x, y, grubosc);
+    }
+    glEnd();
+
+    // Wewnetrzna ramka (okrag wewnatrz - granica szyby)
+    float wewPromien = promien - gruboscRamki;
+    glBegin(GL_QUAD_STRIP);
+    for (int i = 0; i <= slices; ++i) {
+        float angle = i * angleStep;
+        float x = cos(angle) * wewPromien;
+        float y = sin(angle) * wewPromien;
+
+        // Normalne skierowane do wewnatrz
+        glNormal3f(-x, -y, 0);
+
+        glVertex3f(x, y, grubosc * 0.8); // Lekko cofnieta wewnetrzna ramka
+        glVertex3f(x, y, grubosc); // Na rowni z przednia czescia drzwiczek
+    }
+    glEnd();
+
+    // Dodanie uchwytu do drzwiczek
+    glColor3d(0.7, 0.7, 0.7); // Jasniejszy uchwyt
+    glPushMatrix();
+    glTranslatef(promien - gruboscRamki / 2, 0, grubosc / 2); // Pozycja uchwytu na prawej stronie drzwiczek
+
+    // Maly walec poziomy jako uchwyt używajac tylko OpenGL
+    float uchwytPromien = 0.05;
+    float uchwytWysokosc = 0.15;
+    int uchwytSegmenty = 12;
+
+    // Boki uchwytu (cylinder)
+    glBegin(GL_QUAD_STRIP);
+    for (int i = 0; i <= uchwytSegmenty; i++) {
+        float angle = 2.0f * M_PI * static_cast<float>(i) / static_cast<float>(uchwytSegmenty);
+        float y = uchwytPromien * cos(angle);
+        float z = uchwytPromien * sin(angle);
+
+        // Normalne skierowane promieniscie na zewnatrz uchwytu
+        glNormal3f(0, y, z);
+
+        glVertex3f(0, y, z); // Przod cylindra
+        glVertex3f(uchwytWysokosc, y, z); // Tyl cylindra
+    }
+    glEnd();
+
+    // Przednia podstawa uchwytu (kolo)
+    glBegin(GL_TRIANGLE_FAN);
+    glNormal3f(-1, 0, 0); // Normalna skierowana w kierunku -x
+    glVertex3f(0, 0, 0); // srodek przedniej podstawy
+    for (int i = uchwytSegmenty; i >= 0; i--) {
+        float angle = 2.0f * M_PI * static_cast<float>(i) / static_cast<float>(uchwytSegmenty);
+        float y = uchwytPromien * cos(angle);
+        float z = uchwytPromien * sin(angle);
+        glVertex3f(0, y, z);
+    }
+    glEnd();
+
+    // Tylna podstawa uchwytu (kolo)
+    glBegin(GL_TRIANGLE_FAN);
+    glNormal3f(1, 0, 0); // Normalna skierowana w kierunku +x
+    glVertex3f(uchwytWysokosc, 0, 0); // srodek tylnej podstawy
+    for (int i = 0; i <= uchwytSegmenty; i++) {
+        float angle = 2.0f * M_PI * static_cast<float>(i) / static_cast<float>(uchwytSegmenty);
+        float y = uchwytPromien * cos(angle);
+        float z = uchwytPromien * sin(angle);
+        glVertex3f(uchwytWysokosc, y, z);
+    }
+    glEnd();
+
+    glPopMatrix();
+}
+
+// Funkcja rysujaca pokretlo (używajac tylko OpenGL)
+void rysujPokretlo(float promien, int segmenty) {
+    // Rysowanie pokretla jako dysku z wykorzystaniem trojkatow
+    glBegin(GL_TRIANGLE_FAN);
+    glNormal3f(0, 0, 1); // Normalna skierowana do przodu
+    glVertex3f(0.0f, 0.0f, 0.0f); // srodek dysku
+
+    for (int i = 0; i <= segmenty; i++) {
+        float theta = 2.0f * M_PI * static_cast<float>(i) / static_cast<float>(segmenty);
+        float x = promien * cosf(theta);
+        float y = promien * sinf(theta);
+        glVertex3f(x, y, 0.0f);
+    }
+    glEnd();
+
+    // Dodanie obwodki pokretla
+    glColor3d(0.8, 0.8, 0.8); // Nieco ciemniejszy odcień dla obwodki
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i <= segmenty; i++) {
+        float theta = 2.0f * M_PI * static_cast<float>(i) / static_cast<float>(segmenty);
+        float x = promien * cosf(theta);
+        float y = promien * sinf(theta);
+        glVertex3f(x, y, 0.01f);
+    }
+    glEnd();
+
+    // Dodanie "wskaźnika" na pokretle
+    glBegin(GL_LINES);
+    glVertex3f(0.0f, 0.0f, 0.02f);
+    glVertex3f(0.0f, promien * 0.8f, 0.02f);
+    glEnd();
+}
+
+// Funkcja rysujaca panel sterowania z pokretlami
+void rysujPanelSterowania() {
+    // Wylaczamy swiatlo dla panelu sterowania, aby byl zawsze ciemny
+    glDisable(GL_LIGHTING);
+
+    // Panel sterowania (czarny prostokat)
+    glPushMatrix();
+    glColor3d(0.1, 0.1, 0.1); // Czarny kolor panelu
+    glTranslated(0.0, 0.95, 1.01); // Przesuniecie panelu wyżej (zmiana z 0.85 na 0.95)
+    glScaled(1.4, 0.2, 0.01); // Zmniejszony panel, aby nie wystawal poza obudowe
+    rysujProstokatnaObudowe();
+    glPopMatrix();
+
+    // Lewe pokretlo
+    glPushMatrix();
+    glColor3d(0.8, 0.8, 0.8); // Jasnoszary kolor pokretla dla kontrastu
+    glTranslated(-0.5, 0.95, 1.03); // Dostosowana pozycja Y do nowej wysokosci panelu
+    rysujPokretlo(0.1, 20); // Mniejsze pokretlo
+    glPopMatrix();
+
+    // Prawe pokretlo
+    glPushMatrix();
+    glColor3d(0.8, 0.8, 0.8); // Jasnoszary kolor pokretla dla kontrastu
+    glTranslated(0.5, 0.95, 1.03); // Dostosowana pozycja Y do nowej wysokosci panelu
+    rysujPokretlo(0.1, 20); // Mniejsze pokretlo
+    glPopMatrix();
+
+    // Dodanie malych przyciskow i wskaźnikow LED (jasniejsze dla kontrastu z czarnym panelem)
+    for (int i = -2; i <= 2; i++) {
+        if (i != -1 && i != 1) { // Omijamy miejsca gdzie sa pokretla
+            glPushMatrix();
+            glColor3d(0.9, 0.9, 0.0); // Żolty kolor dla lepszej widocznosci
+            glTranslated(i * 0.25, 1.0, 1.02); // Pozycja przycisku (wyżej niż bylo)
+            glScaled(0.03, 0.01, 0.01); // Rozmiar przycisku
+            rysujProstokatnaObudowe();
+            glPopMatrix();
+        }
+    }
+
+    // Przywracamy swiatlo po narysowaniu panelu
+    glEnable(GL_LIGHTING);
+}
+void rysujPudelkoZPokrywka(float katOtwarciaPokrywki) {
+    // Rysowanie podstawy pudelka (bez gornej sciany)
+    glBegin(GL_QUADS);
+
+    // sCIANA PRZEDNIA:
+    glNormal3d(0, 0, 1);
+    glTexCoord2f(0.0f, 0.0f); glVertex3d(1, -1, 1);
+    glTexCoord2f(1.0f, 0.0f); glVertex3d(1, 1, 1);
+    glTexCoord2f(1.0f, 0.5f); glVertex3d(-1, 1, 1);
+    glTexCoord2f(0.0f, 0.5f); glVertex3d(-1, -1, 1);
+
+    // sCIANA TYLNIA:
+    glNormal3d(0, 0, -1);
+    glTexCoord2f(0.0f, 0.0f); glVertex3d(-1, -1, -1);
+    glTexCoord2f(1.0f, 0.0f); glVertex3d(-1, 1, -1);
+    glTexCoord2f(1.0f, 0.5f); glVertex3d(1, 1, -1);
+    glTexCoord2f(0.0f, 0.5f); glVertex3d(1, -1, -1);
+
+    // sCIANA PRAWA:
+    glNormal3d(1, 0, 0);
+    glTexCoord2f(0.0f, 0.0f); glVertex3d(1, -1, -1);
+    glTexCoord2f(1.0f, 0.0f); glVertex3d(1, 1, -1);
+    glTexCoord2f(1.0f, 0.5f); glVertex3d(1, 1, 1);
+    glTexCoord2f(0.0f, 0.5f); glVertex3d(1, -1, 1);
+
+    // sCIANA LEWA:
+    glNormal3d(-1, 0, 0);
+    glTexCoord2f(0.0f, 0.0f); glVertex3d(-1, -1, 1);
+    glTexCoord2f(1.0f, 0.0f); glVertex3d(-1, 1, 1);
+    glTexCoord2f(1.0f, 0.5f); glVertex3d(-1, 1, -1);
+    glTexCoord2f(0.0f, 0.5f); glVertex3d(-1, -1, -1);
+
+    // sCIANA DOLNA:
+    glNormal3d(0, -1, 0);
+    glTexCoord2f(0.0f, 0.0f); glVertex3d(1, -1, -1);
+    glTexCoord2f(1.0f, 0.0f); glVertex3d(1, -1, 1);
+    glTexCoord2f(1.0f, 0.5f); glVertex3d(-1, -1, 1);
+    glTexCoord2f(0.0f, 0.5f); glVertex3d(-1, -1, -1);
+
+    glEnd();
+
+    // Rysowanie pokrywki (gornej sciany), ktora sie obraca
+    glPushMatrix();
+
+    // Punkt obrotu pokrywki jest na tylnej krawedzi
+    glTranslatef(-1.0f, 1.0f, 0.0f);
+    glRotatef(-katOtwarciaPokrywki * 180.0f / M_PI, 1.0f, 0.0f, 0.0f);
+    glTranslatef(1.0f, -1.0f, 0.0f);
+
+    // Gorna sciana (pokrywka)
+    glBegin(GL_QUADS);
+    glNormal3d(0, 1, 0);
+    glTexCoord2f(0.0f, 0.0f); glVertex3d(1, 1, 1);
+    glTexCoord2f(1.0f, 0.0f); glVertex3d(1, 1, -1);
+    glTexCoord2f(1.0f, 0.5f); glVertex3d(-1, 1, -1);
+    glTexCoord2f(0.0f, 0.5f); glVertex3d(-1, 1, 1);
+    glEnd();
+
+    glPopMatrix();
+}
+void rysujTlo() {
+    glBegin(GL_QUADS);
+    glNormal3f(0.0f, 0.0f, 1.0f);  // Normalna wskazuje w nasza strone
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(-15.0f, -15.0f, -5.0f);
+    glTexCoord2f(2.0f, 0.0f); glVertex3f(15.0f, -15.0f, -5.0f);
+    glTexCoord2f(2.0f, 2.0f); glVertex3f(15.0f, 15.0f, -5.0f);
+    glTexCoord2f(0.0f, 2.0f); glVertex3f(-15.0f, 15.0f, -5.0f);
+    glEnd();
+}
+void rysujSymbolReflektora() {
+    // Rysujemy tylko jesli reflektor jest wlaczony
+    if (!reflektorWlaczone) return;
+
+    // Wylaczamy oswietlenie, aby symbol reflektora byl niezależny od oswietlenia
+    glDisable(GL_LIGHTING);
+
+    glPushMatrix();
+    // Umieszczamy symbol w stalej pozycji reflektora (usunieto animacje)
+    glTranslatef(0.0f, 5.0f, 3.0f);
+
+    // Rysujemy maly żolty stożek symbolizujacy reflektor
+    glColor3f(1.0f, 1.0f, 0.0f);
+
+    // Stożek - wierzcholek skierowany w dol i lekko do przodu
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex3f(0.0f, 0.0f, 0.0f); // Wierzcholek stożka
+
+    // Podstawa stożka (okrag)
+    float radius = 0.5f;
+    int segments = 16;
+    for (int i = 0; i <= segments; i++) {
+        float angle = 2.0f * M_PI * float(i) / float(segments);
+        float x = radius * cos(angle);
+        float z = radius * sin(angle);
+        glVertex3f(x, -1.0f, z - 0.5f); // Podstawa jest niżej i lekko przesunieta w kierunku -Z
+    }
+    glEnd();
+
+    glPopMatrix();
+
+    // Wlaczamy z powrotem oswietlenie
+    glEnable(GL_LIGHTING);
+}
+
+// Funkcja rysujaca widoczny stożek swiatla reflektora
+void rysujStozekSwiatlaReflektora() {
+    // Rysujemy tylko jesli reflektor jest wlaczony
+    if (!reflektorWlaczone) return;
+
+    glDisable(GL_LIGHTING);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glPushMatrix();
+    // Stala pozycja reflektora (usunieto animacje)
+    glTranslatef(0.0f, 5.0f, 3.0f);
+
+    // Stożek swiatla - polprzezroczysty niebieski
+    glColor4f(0.0f, 0.0f, 1.0f, 0.2f); // Niebieski z 20% przezroczystoscia
+
+    // Rysujemy stożek swiatla
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex3f(0.0f, 0.0f, 0.0f); // Wierzcholek stożka
+
+    float radius = 3.0f; // Wiekszy promień podstawy
+    int segments = 32;   // Wiecej segmentow dla plynniejszego wygladu
+    for (int i = 0; i <= segments; i++) {
+        float angle = 2.0f * M_PI * float(i) / float(segments);
+        float x = radius * cos(angle);
+        float z = radius * sin(angle);
+        glVertex3f(x, -6.0f, z - 3.0f); // Podstawa jest dalej i w kierunku -Z (w strone sceny)
+    }
+    glEnd();
+
+    glPopMatrix();
+
+    glDisable(GL_BLEND);
+    glEnable(GL_LIGHTING);
+}
+void aktualizujIntensywnoscSwiatla() {
+    // Aktualizacja skladowej ambient (otoczenia)
+    GLfloat ambient[] = { 0.5f * intensywnoscGlownegoSwiatla, 0.5f * intensywnoscGlownegoSwiatla, 0.5f * intensywnoscGlownegoSwiatla, 1.0f };
+    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
+
+    // Aktualizacja skladowej diffuse (rozproszenia)
+    GLfloat diffuse[] = { 1.0f * intensywnoscGlownegoSwiatla, 1.0f * intensywnoscGlownegoSwiatla, 1.0f * intensywnoscGlownegoSwiatla, 1.0f };
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+}
+// Funkcja rysujaca zielona sciane za pralka
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+        // Przelaczanie stanu otwarcia drzwiczek pralki
+        if (katOtwarciaDrzwiczek < 0.1)
+            katOtwarciaDrzwiczek = M_PI / 3.0; // Otwarte na 60 stopni
+        else
+            katOtwarciaDrzwiczek = 0.0; // Zamkniete
+    }
+    else if (key == GLFW_KEY_1 && action == GLFW_PRESS) {
+        // Przelaczanie stanu otwarcia pokrywki pierwszego pudelka
+        if (katOtwarciaPokrywki1 < 0.1)
+            katOtwarciaPokrywki1 = M_PI / 2.0; // Otwarte na 90 stopni
+        else
+            katOtwarciaPokrywki1 = 0.0; // Zamkniete
+    }
+    else if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
+        // Przelaczanie stanu otwarcia pokrywki drugiego pudelka
+        if (katOtwarciaPokrywki2 < 0.1)
+            katOtwarciaPokrywki2 = M_PI / 2.0; // Otwarte na 90 stopni
+        else
+            katOtwarciaPokrywki2 = 0.0; // Zamkniete
+    }
+    // Obsluga przelaczania swiatel
+    else if (key == GLFW_KEY_L && action == GLFW_PRESS) {
+        // Przelaczanie glownego swiatla
+        glowneSwiatloWlaczone = !glowneSwiatloWlaczone;
+        if (glowneSwiatloWlaczone)
+            glEnable(GL_LIGHT0);
+        else
+            glDisable(GL_LIGHT0);
+        cout << "Glowne swiatlo: " << (glowneSwiatloWlaczone ? "wlaczone" : "wylaczone") << endl;
+    }
+    else if (key == GLFW_KEY_R && action == GLFW_PRESS) {
+        // Przelaczanie reflektora
+        reflektorWlaczone = !reflektorWlaczone;
+        if (reflektorWlaczone)
+            glEnable(GL_LIGHT1);
+        else
+            glDisable(GL_LIGHT1);
+        cout << "Reflektor: " << (reflektorWlaczone ? "wlaczony" : "wylaczony") << endl;
+    }
+    // Obsluga zmiany intensywnosci glownego swiatla
+    else if ((key == GLFW_KEY_EQUAL || key == GLFW_KEY_KP_ADD) && action == GLFW_PRESS) {
+        // Zwiekszanie intensywnosci glownego swiatla (klawisz '+')
+        intensywnoscGlownegoSwiatla += 0.1f;
+        if (intensywnoscGlownegoSwiatla > 1.0f) intensywnoscGlownegoSwiatla = 1.0f;
+        aktualizujIntensywnoscSwiatla();
+        cout << "Intensywnosc glownego swiatla: " << intensywnoscGlownegoSwiatla * 100.0f << "%" << endl;
+    }
+    else if ((key == GLFW_KEY_MINUS || key == GLFW_KEY_KP_SUBTRACT) && action == GLFW_PRESS) {
+        // Zmniejszanie intensywnosci glownego swiatla (klawisz '-')
+        intensywnoscGlownegoSwiatla -= 0.1f;
+        if (intensywnoscGlownegoSwiatla < 0.1f) intensywnoscGlownegoSwiatla = 0.1f; // Minimalny poziom swiatla
+        aktualizujIntensywnoscSwiatla();
+        cout << "Intensywnosć glownego swiatla: " << intensywnoscGlownegoSwiatla * 100.0f << "%" << endl;
+    }
+    // NOWE: Sterowanie ruchem pralki
+    else if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+        // Przelaczanie trybu animacji
+        pralkaAnimacja = !pralkaAnimacja;
+        cout << "Automatyczny obrot pralki: " << (pralkaAnimacja ? "WlaCZONY" : "WYlaCZONY") << endl;
+    }
+    // Sterowanie animacja pudelek
+    else if (key == GLFW_KEY_0 && action == GLFW_PRESS) {
+        // Przelaczanie animacji pierwszego pudelka
+        pudelko1Animacja = !pudelko1Animacja;
+        cout << "Automatyczny obrot pudelka 1: " << (pudelko1Animacja ? "WlaCZONY" : "WYlaCZONY") << endl;
+    }
+    else if (key == GLFW_KEY_9 && action == GLFW_PRESS) {
+        // Przelaczanie animacji drugiego pudelka
+        pudelko2Animacja = !pudelko2Animacja;
+        cout << "Automatyczny obrot pudelka 2: " << (pudelko2Animacja ? "WlaCZONY" : "WYlaCZONY") << endl;
+    }
+
+    // NOWE: Obsluga przelaczania rzutowania
+    else if (key == GLFW_KEY_V && action == GLFW_PRESS) {
+        // Przelaczanie miedzy rzutowaniem perspektywicznym a rownoleglym
+        rzutowaniePerspektywiczne = !rzutowaniePerspektywiczne;
+        cout << "Rzutowanie: " << (rzutowaniePerspektywiczne ? "PERSPEKTYWICZNE" : "RoWNOLEGlE") << endl;
+    }
+    // Sterowanie parametrami rzutowania
+    else if (key == GLFW_KEY_N && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        if (rzutowaniePerspektywiczne) {
+            // Zwiekszanie kata widzenia (FOV) dla rzutowania perspektywicznego
+            fov += 5.0f;
+            if (fov > 120.0f) fov = 120.0f; // Maksymalny FOV
+            cout << "FOV: " << fov << " stopni" << endl;
+        }
+        else {
+            // Zwiekszanie skali dla rzutowania rownoleglego
+            skalaRzutuRownolegego += 0.5f;
+            cout << "Skala rzutu rownoleglego: " << skalaRzutuRownolegego << endl;
+        }
+    }
+    else if (key == GLFW_KEY_M && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        if (rzutowaniePerspektywiczne) {
+            // Zmniejszanie kata widzenia (FOV) dla rzutowania perspektywicznego
+            fov -= 5.0f;
+            if (fov < 10.0f) fov = 10.0f; // Minimalny FOV
+            cout << "FOV: " << fov << " stopni" << endl;
+        }
+        else {
+            // Zmniejszanie skali dla rzutowania rownoleglego
+            skalaRzutuRownolegego -= 0.5f;
+            if (skalaRzutuRownolegego < 1.0f) skalaRzutuRownolegego = 1.0f; // Minimalna skala
+            cout << "Skala rzutu rownoleglego: " << skalaRzutuRownolegego << endl;
+        }
+    }
+
+    // NOWE: Wlaczanie/wylaczanie trybu kamery
+    else if (key == GLFW_KEY_F && action == GLFW_PRESS) {
+        trybKamery = !trybKamery;
+        cout << "Tryb kamery: " << (trybKamery ? "WlaCZONY" : "WYlaCZONY") << endl;
+
+        if (trybKamery) {
+            // Po wlaczeniu trybu kamery, ustaw kamere w sensownej pozycji
+            kameraPozX = 0.0f;
+            kameraPozY = 0.0f;
+            kameraPozZ = 10.0f;
+            kameraKatX = 0.0f;
+            kameraKatY = 0.0f;
+        }
+    }
+
+    // NOWE: Wlaczanie/wylaczanie trybu orbitalnego
+    else if (key == GLFW_KEY_O && action == GLFW_PRESS) {
+        trybOrbitalny = !trybOrbitalny;
+        trybKamery = trybOrbitalny; // Wlacz tryb kamery gdy wlaczamy orbitalny
+        cout << "Tryb orbitalny: " << (trybOrbitalny ? "WlaCZONY" : "WYlaCZONY") << endl;
+
+        if (trybOrbitalny) {
+            // Poczatkowe ustawienia dla trybu orbitalnego
+            kameraOdleglosc = 10.0f;
+            kameraKatX = 0.0f;
+            kameraKatY = 0.0f;
+        }
+    }
+
+    // Sterowanie kamera dziala tylko gdy tryb kamery jest wlaczony
+    if (trybKamery) {
+        if (trybOrbitalny) {
+            // W trybie orbitalnym, W/S zmienia odleglosć od centrum
+            if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+                // Przybliżenie
+                kameraOdleglosc -= kameraPredkosc;
+                if (kameraOdleglosc < 1.0f) kameraOdleglosc = 1.0f;
+                cout << "Odleglosć kamery: " << kameraOdleglosc << endl;
+            }
+            else if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+                // Oddalenie
+                kameraOdleglosc += kameraPredkosc;
+                cout << "Odleglosć kamery: " << kameraOdleglosc << endl;
+            }
+        }
+        else {
+            // Ruch kamery przod/tyl (W/S)
+            if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+                // Ruch do przodu (w kierunku patrzenia)
+                kameraPozX += sin(kameraKatY * M_PI / 180.0f) * cos(kameraKatX * M_PI / 180.0f) * kameraPredkosc;
+                kameraPozY += sin(kameraKatX * M_PI / 180.0f) * kameraPredkosc;
+                kameraPozZ -= cos(kameraKatY * M_PI / 180.0f) * cos(kameraKatX * M_PI / 180.0f) * kameraPredkosc;
+                cout << "Kamera PozXYZ: " << kameraPozX << ", " << kameraPozY << ", " << kameraPozZ << endl;
+            }
+            else if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+                // Ruch do tylu (przeciwnie do kierunku patrzenia)
+                kameraPozX -= sin(kameraKatY * M_PI / 180.0f) * cos(kameraKatX * M_PI / 180.0f) * kameraPredkosc;
+                kameraPozY -= sin(kameraKatX * M_PI / 180.0f) * kameraPredkosc;
+                kameraPozZ += cos(kameraKatY * M_PI / 180.0f) * cos(kameraKatX * M_PI / 180.0f) * kameraPredkosc;
+                cout << "Kamera PozXYZ: " << kameraPozX << ", " << kameraPozY << ", " << kameraPozZ << endl;
+            }
+
+            // Ruch kamery lewo/prawo (A/D) - przesuniecie boczne
+            if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+                // Ruch w lewo (prostopadle do kierunku patrzenia)
+                kameraPozX -= cos(kameraKatY * M_PI / 180.0f) * kameraPredkosc;
+                kameraPozZ -= sin(kameraKatY * M_PI / 180.0f) * kameraPredkosc;
+                cout << "Kamera PozXYZ: " << kameraPozX << ", " << kameraPozY << ", " << kameraPozZ << endl;
+            }
+            else if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+                // Ruch w prawo (prostopadle do kierunku patrzenia)
+                kameraPozX += cos(kameraKatY * M_PI / 180.0f) * kameraPredkosc;
+                kameraPozZ += sin(kameraKatY * M_PI / 180.0f) * kameraPredkosc;
+                cout << "Kamera PozXYZ: " << kameraPozX << ", " << kameraPozY << ", " << kameraPozZ << endl;
+            }
+
+            // Ruch kamery gora/dol (Q/E) - przesuniecie pionowe
+            if (key == GLFW_KEY_Q && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+                // Ruch w gore
+                kameraPozY += kameraPredkosc;
+                cout << "Kamera PozY: " << kameraPozY << endl;
+            }
+            else if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+                // Ruch w dol
+                kameraPozY -= kameraPredkosc;
+                cout << "Kamera PozY: " << kameraPozY << endl;
+            }
+        }
+
+        // Obracanie kamery (strzalki) - dziala tak samo w obu trybach
+        if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            // Patrz w gore
+            kameraKatX += 2.0f;
+            if (kameraKatX > 89.0f) kameraKatX = 89.0f; // Ograniczenie kata
+            cout << "Kamera KatX: " << kameraKatX << endl;
+        }
+        else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            // Patrz w dol
+            kameraKatX -= 2.0f;
+            if (kameraKatX < -89.0f) kameraKatX = -89.0f; // Ograniczenie kata
+            cout << "Kamera KatX: " << kameraKatX << endl;
+        }
+        else if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            // Patrz w lewo
+            kameraKatY += 2.0f;
+            if (kameraKatY > 360.0f) kameraKatY -= 360.0f;
+            cout << "Kamera KatY: " << kameraKatY << endl;
+        }
+        else if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            // Patrz w prawo
+            kameraKatY -= 2.0f;
+            if (kameraKatY < 0.0f) kameraKatY += 360.0f;
+            cout << "Kamera KatY: " << kameraKatY << endl;
+        }
+    }
+
+    // Poniższe sterowanie dziala tylko gdy animacja pralki wylaczona i tryb kamery wylaczony
+    if (!pralkaAnimacja && !trybKamery) {
+        // Przesuniecie w osi X
+        if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaPozX -= 0.1f; // Przesuniecie w lewo
+            cout << "Pralka X: " << pralkaPozX << endl;
+        }
+        else if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaPozX += 0.1f; // Przesuniecie w prawo
+            cout << "Pralka X: " << pralkaPozX << endl;
+        }
+
+        // Przesuniecie w osi Y
+        else if (key == GLFW_KEY_Q && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaPozY += 0.1f; // Przesuniecie w gore
+            cout << "Pralka Y: " << pralkaPozY << endl;
+        }
+        else if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaPozY -= 0.1f; // Przesuniecie w dol
+            cout << "Pralka Y: " << pralkaPozY << endl;
+        }
+
+        // Przesuniecie w osi Z
+        else if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaPozZ += 0.1f; // Przesuniecie do przodu
+            cout << "Pralka Z: " << pralkaPozZ << endl;
+        }
+        else if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaPozZ -= 0.1f; // Przesuniecie do tylu
+            cout << "Pralka Z: " << pralkaPozZ << endl;
+        }
+
+        // Obrot wokol osi X
+        else if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaRotX += 5.0f; // Obrot do przodu
+            cout << "Pralka RotX: " << pralkaRotX << endl;
+        }
+        else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaRotX -= 5.0f; // Obrot do tylu
+            cout << "Pralka RotX: " << pralkaRotX << endl;
+        }
+
+        // Obrot wokol osi Y
+        else if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaRotY += 5.0f; // Obrot w lewo
+            cout << "Pralka RotY: " << pralkaRotY << endl;
+        }
+        else if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaRotY -= 5.0f; // Obrot w prawo
+            cout << "Pralka RotY: " << pralkaRotY << endl;
+        }
+
+        // Obrot wokol osi Z
+        else if (key == GLFW_KEY_Z && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaRotZ += 5.0f; // Obrot w lewo (zgodnie z ruchem wskazowek zegara)
+            cout << "Pralka RotZ: " << pralkaRotZ << endl;
+        }
+        else if (key == GLFW_KEY_X && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            pralkaRotZ -= 5.0f; // Obrot w prawo (przeciwnie do ruchu wskazowek zegara)
+            cout << "Pralka RotZ: " << pralkaRotZ << endl;
+        }
+        else if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
+            // Przelaczanie wlaczania/wylaczania ukrywania powierzchni
+            ukrywaniePowierzchni = !ukrywaniePowierzchni;
+            aktualizujUstawieniaRenderowania();
+            cout << "Ukrywanie powierzchni: " << (ukrywaniePowierzchni ? "WlaCZONE" : "WYlaCZONE") << endl;
+        }
+        else if (key == GLFW_KEY_F2 && action == GLFW_PRESS) {
+            // Przelaczanie trybu ukrywania powierzchni
+            if (trybUkrywania == GL_BACK) {
+                trybUkrywania = GL_FRONT;
+                cout << "Ukrywanie powierzchni przednich" << endl;
+            }
+            else if (trybUkrywania == GL_FRONT) {
+                trybUkrywania = GL_FRONT_AND_BACK;
+                cout << "Ukrywanie powierzchni przednich i tylnych" << endl;
+            }
+            else {
+                trybUkrywania = GL_BACK;
+                cout << "Ukrywanie powierzchni tylnych" << endl;
+            }
+            aktualizujUstawieniaRenderowania();
+        }
+
+        // Sterowanie testowaniem glebi
+        else if (key == GLFW_KEY_F3 && action == GLFW_PRESS) {
+            // Przelaczanie wlaczania/wylaczania testowania glebi
+            testowanieGlebi = !testowanieGlebi;
+            aktualizujUstawieniaRenderowania();
+            cout << "Testowanie glebi: " << (testowanieGlebi ? "WlaCZONE" : "WYlaCZONE") << endl;
+        }
+        else if (key == GLFW_KEY_F4 && action == GLFW_PRESS) {
+            // Przelaczanie trybu testowania glebi
+            switch (trybTestuGlebi) {
+            case GL_LESS:
+                trybTestuGlebi = GL_LEQUAL;
+                cout << "Tryb testu glebi: LEQUAL (<=)" << endl;
+                break;
+            case GL_LEQUAL:
+                trybTestuGlebi = GL_GREATER;
+                cout << "Tryb testu glebi: GREATER (>)" << endl;
+                break;
+            case GL_GREATER:
+                trybTestuGlebi = GL_GEQUAL;
+                cout << "Tryb testu glebi: GEQUAL (>=)" << endl;
+                break;
+            case GL_GEQUAL:
+                trybTestuGlebi = GL_EQUAL;
+                cout << "Tryb testu glebi: EQUAL (=)" << endl;
+                break;
+            case GL_EQUAL:
+                trybTestuGlebi = GL_NOTEQUAL;
+                cout << "Tryb testu glebi: NOTEQUAL (!=)" << endl;
+                break;
+            case GL_NOTEQUAL:
+                trybTestuGlebi = GL_ALWAYS;
+                cout << "Tryb testu glebi: ALWAYS (zawsze)" << endl;
+                break;
+            default:
+                trybTestuGlebi = GL_LESS;
+                cout << "Tryb testu glebi: LESS (<)" << endl;
+                break;
+            }
+            aktualizujUstawieniaRenderowania();
+        }
+
+        // Sterowanie nawijaniem wielokatow
+        else if (key == GLFW_KEY_F5 && action == GLFW_PRESS) {
+            // Przelaczanie kierunku nawijania wielokatow
+            zgodnieZRuchemWskazowek = !zgodnieZRuchemWskazowek;
+            aktualizujUstawieniaRenderowania();
+            cout << "Nawijanie: " << (zgodnieZRuchemWskazowek ? "ZGODNIE z ruchem wskazowek zegara" : "PRZECIWNIE do ruchu wskazowek zegara") << endl;
+        }
+
+        // Sterowanie trybem wypelniania
+        else if (key == GLFW_KEY_F6 && action == GLFW_PRESS) {
+            // Przelaczanie trybu wypelniania
+            if (trybWypelniania == GL_FILL) {
+                trybWypelniania = GL_LINE;
+                cout << "Tryb wypelniania: SZKIELET (linie)" << endl;
+            }
+            else if (trybWypelniania == GL_LINE) {
+                trybWypelniania = GL_POINT;
+                cout << "Tryb wypelniania: PUNKTY" << endl;
+            }
+            else {
+                trybWypelniania = GL_FILL;
+                cout << "Tryb wypelniania: WYPElNIONY" << endl;
+            }
+            aktualizujUstawieniaRenderowania();
+        }
+
+        // Sterowanie cieniowaniem
+        else if (key == GLFW_KEY_F7 && action == GLFW_PRESS) {
+            // Przelaczanie trybu cieniowania
+            cieniowaniePlaskie = !cieniowaniePlaskie;
+            aktualizujUstawieniaRenderowania();
+            cout << "Cieniowanie: " << (cieniowaniePlaskie ? "PlASKIE (jednolite)" : "GlADKIE (plynne przejscia)") << endl;
+        }
+
+    }
+}
+
+
+
+
+void ustawKamere(float eyeX, float eyeY, float eyeZ,
+    float targetX, float targetY, float targetZ,
+    float upX, float upY, float upZ) {
+    // Oblicz wektory dla macierzy widoku
+    // Wektor "spojrzenia" (kierunek, w ktorym patrzymy)
+    float lookX = targetX - eyeX;
+    float lookY = targetY - eyeY;
+    float lookZ = targetZ - eyeZ;
+
+    // Normalizacja wektora "spojrzenia"
+    float lookLength = sqrt(lookX * lookX + lookY * lookY + lookZ * lookZ);
+    lookX /= lookLength;
+    lookY /= lookLength;
+    lookZ /= lookLength;
+
+    // Wektor "prawo" (prostopadle do kierunku patrzenia i wektora "gora")
+    float rightX = lookY * upZ - lookZ * upY;
+    float rightY = lookZ * upX - lookX * upZ;
+    float rightZ = lookX * upY - lookY * upX;
+
+    // Normalizacja wektora "prawo"
+    float rightLength = sqrt(rightX * rightX + rightY * rightY + rightZ * rightZ);
+    rightX /= rightLength;
+    rightY /= rightLength;
+    rightZ /= rightLength;
+
+    // Wektor "gora" (prostopadle do kierunku patrzenia i wektora "prawo")
+    float newUpX = rightY * lookZ - rightZ * lookY;
+    float newUpY = rightZ * lookX - rightX * lookZ;
+    float newUpZ = rightX * lookY - rightY * lookX;
+
+    // Utworz macierz rotacji
+    float rotationMatrix[16] = {
+        rightX, newUpX, -lookX, 0,
+        rightY, newUpY, -lookY, 0,
+        rightZ, newUpZ, -lookZ, 0,
+        0, 0, 0, 1
+    };
+
+    // Zastosuj macierz rotacji
+    glMultMatrixf(rotationMatrix);
+
+    // Zastosuj translacje (przesuń kamere)
+    glTranslatef(-eyeX, -eyeY, -eyeZ);
+}
+
+void display() {
+    const double a = glfwGetTime();
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    // Resetujemy macierz widoku i projekcji
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    aktualizujUstawieniaRenderowania();
+
+
+    // Jesli tryb kamery jest wlaczony, używamy pozycji i orientacji kamery
+    if (trybKamery) {
+        if (trybOrbitalny) {
+            // Kamera orbitalna - kraży wokol punktu (0,0,0)
+            float eyeX = kameraOdleglosc * sin(kameraKatY * M_PI / 180.0f) * cos(kameraKatX * M_PI / 180.0f);
+            float eyeY = kameraOdleglosc * sin(kameraKatX * M_PI / 180.0f);
+            float eyeZ = kameraOdleglosc * cos(kameraKatY * M_PI / 180.0f) * cos(kameraKatX * M_PI / 180.0f);
+
+           
+            ustawKamere(
+                eyeX, eyeY, eyeZ,   // pozycja kamery
+                0.0f, 0.0f, 0.0f,   // patrzymy na srodek sceny
+                0.0f, 1.0f, 0.0f    // wektor "up"
+            );
+        }
+        else {
+            // Normalny tryb kamery - swobodne poruszanie sie
+            // Oblicz wektor kierunku kamery
+            float dirX = sin(kameraKatY * M_PI / 180.0f) * cos(kameraKatX * M_PI / 180.0f);
+            float dirY = sin(kameraKatX * M_PI / 180.0f);
+            float dirZ = -cos(kameraKatY * M_PI / 180.0f) * cos(kameraKatX * M_PI / 180.0f);
+
+            
+            ustawKamere(
+                kameraPozX, kameraPozY, kameraPozZ,                   // pozycja kamery
+                kameraPozX + dirX, kameraPozY + dirY, kameraPozZ + dirZ, // punkt docelowy
+                0.0f, 1.0f, 0.0f                                     // wektor "up"
+            );
+        }
+    }
+    else {
+        // Używaj starego systemu pozycjonowania sceny
+        if (rzutowaniePerspektywiczne) {
+            glTranslatef(0.0f, 0.0f, -20.0f);
+        }
+        else {
+            glTranslatef(0.0f, 0.0f, -10.0f);
+        }
+    }
+
+    // KLUCZOWE: Ustawienie stalej pozycji reflektora zamiast animowanej
+    if (reflektorWlaczone) {
+        // Stala pozycja reflektora nad scena
+        GLfloat spotlight_position[] = {
+            0.0f,  // Stala pozycja X (srodek)
+            5.0f,  // Wysokosć
+            3.0f,  // Z przodu sceny
+            1.0f
+        };
+        GLfloat spotlight_direction[] = {
+            0.0f,  // Kierunek X (prosto w dol) 
+            -1.0f, // W dol
+            -0.5f, // Lekko do przodu
+        };
+
+        glLightfv(GL_LIGHT1, GL_POSITION, spotlight_position);
+        glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, spotlight_direction);
+    }
+
+    // NOWE: Rysowanie tla z tekstura
+    glPushMatrix();
+    // Wylaczamy test glebi, aby tlo bylo zawsze za wszystkimi obiektami
+    glDisable(GL_DEPTH_TEST);
+    // Wlaczamy teksturowanie
+    glEnable(GL_TEXTURE_2D);
+    // Używamy wybranej tekstury tla (np. "Gory.tga" lub "Zachod.tga")
+    glBindTexture(GL_TEXTURE_2D, tekstury[2]); // Ocean.tga (indeks 2)
+    // Ustawiamy bialy kolor, aby tekstura nie byla zmieniona
+    glColor3f(1.0f, 1.0f, 1.0f);
+    // Rysujemy tlo
+    rysujTlo();
+    // Wylaczamy teksturowanie
+    glDisable(GL_TEXTURE_2D);
+    // Wlaczamy test glebi z powrotem dla innych obiektow
+    glEnable(GL_DEPTH_TEST);
+    glPopMatrix();
+
+    // NOWE: Rysujemy symbol reflektora
+    rysujSymbolReflektora();
+    // Rysujemy stożek swiatla reflektora
+    //rysujStozekSwiatlaReflektora();
+
+    glPushMatrix();
+
+    // Przywracamy poprzednie ustawienia
+    glEnable(GL_LIGHTING);
+    glEnable(GL_DEPTH_TEST);
+
+    glPopMatrix();
+
+    // KROK 2: Teraz rysujemy pralke
+    glPushMatrix();
+
+    // NOWE: Zastosowanie recznego sterowania lub automatycznej animacji
+    if (pralkaAnimacja) {
+        // Obrot pralki (automatyczny, bazujacy na czasie)
+        glRotated(30 * a, 0, 1, 0);
+    }
+    else {
+        // Sterowanie reczne - zastosowanie pozycji i rotacji zdefiniowanych przez użytkownika
+        glTranslatef(pralkaPozX, pralkaPozY, pralkaPozZ);
+        glRotatef(pralkaRotX, 1.0f, 0.0f, 0.0f); // Obrot wokol osi X
+        glRotatef(pralkaRotY, 0.0f, 1.0f, 0.0f); // Obrot wokol osi Y
+        glRotatef(pralkaRotZ, 0.0f, 0.0f, 1.0f); // Obrot wokol osi Z
+    }
+
+    // Rysowanie glownej obudowy (szara)
+    glPushMatrix();
+    glColor3d(0.6, 0.6, 0.65);
+    glScaled(1.5, 2.0, 1.0);
+    rysujProstokatnaObudowe();
+    glPopMatrix();
+
+    // Rysujemy otwor na drzwiczki
+    glPushMatrix();
+    rysujOtworNaDrzwiczki(0.7);
+    glPopMatrix();
+
+    // Wnetrze pralki (tylko przy otwartych drzwiczkach)
+    if (katOtwarciaDrzwiczek > 0.1) {
+        glPushMatrix();
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_LIGHTING);
+        rysujWnetrzePralki(0.65);
+        glEnable(GL_LIGHTING);
+        glEnable(GL_DEPTH_TEST);
+        glPopMatrix();
+    }
+
+    // Drzwiczki pralki
+    glPushMatrix();
+    glDisable(GL_CULL_FACE);
+    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+
+    glTranslated(-0.7, 0.0, 1.0);
+    glRotatef(katOtwarciaDrzwiczek * 180.0 / M_PI, 0, -1, 0);
+    glTranslated(0.7, 0.0, 0.0);
+
+    rysujDrzwiczkiPralki(0.7, 0.15);
+    glColor3d(0.1, 0.1, 0.1);
+    rysujSzybeDrzwiczek(0.7, 0.15);
+
+    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);
+    glEnable(GL_CULL_FACE);
+    glPopMatrix();
+
+    // Panel sterowania
+    rysujPanelSterowania();
+    glColor3f(1.0f, 0.0f, 0.0f);
+
+    glPopMatrix(); // Koniec transformacji pralki
+
+    // PIERWSZY: Pudelko po prawej stronie pralki z tekstura drewna
+    glPushMatrix();
+
+    // NOWE: Kontrola animacji pierwszego pudelka
+    if (pudelko1Animacja) {
+        // Obrot pudelka (automatyczny, bazujacy na czasie)
+        glRotated(30 * a, 0, 1, 0);
+    }
+
+    // Przesuwamy pudelko w prawo od pralki (zawsze, bez wzgledu na animacje)
+    glTranslatef(3.5f, 0.0f, 0.0f);
+
+    // Wlaczamy teksturowanie
+    glEnable(GL_TEXTURE_2D);
+    // Ustawiamy biala baze dla tekstury (aby zachować kolory tekstury)
+    glColor3f(1.0f, 1.0f, 1.0f);
+    // Wybieramy teksture Wood.tga (o indeksie 1)
+    glBindTexture(GL_TEXTURE_2D, tekstury[1]);
+
+    // Pomniejszamy pudelko
+    glScalef(0.7f, 1.0f, 0.7f);
+    // Rysujemy pudelko z pokrywka
+    rysujPudelkoZPokrywka(katOtwarciaPokrywki1);
+
+    // Wylaczamy teksturowanie po narysowaniu
+    glDisable(GL_TEXTURE_2D);
+    glPopMatrix();
+
+    // DRUGI: Pudelko po lewej stronie pralki z tekstura kontenera
+    glPushMatrix();
+
+    // NOWE: Kontrola animacji drugiego pudelka
+    if (pudelko2Animacja) {
+        // Obrot pudelka (automatyczny, bazujacy na czasie)
+        glRotated(40 * a, 0, 1, 0);
+    }
+
+    // Przesuwamy pudelko w lewo od pralki (zawsze, bez wzgledu na animacje)
+    glTranslatef(-3.5f, 0.0f, 0.0f);
+
+    // Wlaczamy teksturowanie
+    glEnable(GL_TEXTURE_2D);
+    // Ustawiamy biala baze dla tekstury (aby zachować kolory tekstury)
+    glColor3f(1.0f, 1.0f, 1.0f);
+    // Wybieramy teksture container.jpg (o indeksie 0)
+    glBindTexture(GL_TEXTURE_2D, tekstury[0]);
+
+    // Skalujemy to pudelko troche inaczej dla urozmaicenia
+    glScalef(0.8f, 1.2f, 0.8f);
+    // Rysujemy pudelko z pokrywka
+    rysujPudelkoZPokrywka(katOtwarciaPokrywki2);
+
+    // Wylaczamy teksturowanie po narysowaniu
+    glDisable(GL_TEXTURE_2D);
+    glPopMatrix();
+}
+
+// Funkcja glowna
+int main(void) {
+    GLFWwindow* window;
+
+    if (!glfwInit())
+        return -1;
+    glfwWindowHint(GLFW_STENCIL_BITS, 8);
+
+    window = glfwCreateWindow(800, 600, "Pralka w OpenGL", NULL, NULL);
+
+    if (!window)
+    {
+        glfwTerminate();
+        return -1;
+    }
+
+    glfwMakeContextCurrent(window);
+    inicjalizujTekstury();
+
+
+    // Rejestracja callback'a dla obslugi klawiatury
+    glfwSetKeyCallback(window, key_callback);
+
+    // Ustawienia swiatla glownego (GL_LIGHT0)
+    GLfloat light_position[] = { 2.0f, 5.0f, 5.0f, 0.0f }; // Przywrocone polożenie swiatla z oryginalnego kodu
+    GLfloat light_ambient[] = { 0.5f, 0.5f, 0.5f, 1.0f };
+    GLfloat light_diffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    GLfloat light_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
+    // Inicjalizacja intensywnosci swiatla
+    intensywnoscGlownegoSwiatla = 1.0f;
+    aktualizujIntensywnoscSwiatla();
+
+    // Ustawienia reflektora (GL_LIGHT1) - zmienione dla lepszej widocznosci
+    GLfloat spotlight_position[] = { 0.0f, 5.0f, 3.0f, 1.0f }; // Zmieniona pozycja - bliżej i bardziej z przodu
+    GLfloat spotlight_direction[] = { 0.0f, -1.0f, -0.5f }; // Kierunek - w dol i lekko do przodu
+    GLfloat spotlight_ambient[] = { 0.0f, 0.0f, 0.2f, 1.0f }; // Ciemniejsze otoczenie
+    GLfloat spotlight_diffuse[] = { 0.0f, 0.0f, 1.0f, 1.0f }; // Intensywnie niebieski
+    GLfloat spotlight_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    GLfloat spotlight_cutoff = 45.0f; // Zwiekszony kat (45 stopni)
+    GLfloat spotlight_exponent = 10.0f; // Zmniejszone skupienie dla szerszego efektu
+    GLfloat spotlight_attenuation = 0.05f; // Dodajemy tlumienie swiatla z odlegloscia
+
+    glLightfv(GL_LIGHT1, GL_POSITION, spotlight_position);
+    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, spotlight_direction);
+    glLightfv(GL_LIGHT1, GL_AMBIENT, spotlight_ambient);
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, spotlight_diffuse);
+    glLightfv(GL_LIGHT1, GL_SPECULAR, spotlight_specular);
+    glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, spotlight_cutoff);
+    glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, spotlight_exponent);
+    glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, spotlight_attenuation);
+
+    // GL_LIGHT1 poczatkowo wylaczone
+    glDisable(GL_LIGHT1);
+
+    glEnable(GL_LIGHT0);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_DEPTH_TEST);
+
+    // NOWE: Ustawienie blend mode dla przezroczystosci
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Ustawienie priorytetow bufora glebi dla lepszej stabilnosci
+    glDepthFunc(GL_LEQUAL);  // Zmienione z GL_LESS
+
+    // Dodatkowe ustawienia dla wyeliminowania migotania
+    glEnable(GL_POLYGON_SMOOTH);
+    glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+
+    // Konfiguracja wlasciwosci materialu
+    GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+    GLfloat mat_shininess[] = { 80.0 }; // Zwiekszamy polysk dla lepszych odbić (bylo 50.0)
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mat_shininess);
+
+    // Ustawienie oswietlenia dwustronnego (dla drzwiczek)
+    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
+
+    // Ustawienie globalnych wlasciwosci materialu
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+    glEnable(GL_STENCIL_TEST);
+
+    // Wyswietlenie instrukcji sterowania
+    cout << "Instrukcja:" << endl;
+    cout << "SPACJA - otwarcie/zamkniecie drzwiczek pralki" << endl;
+    cout << "1 - otwarcie/zamkniecie pokrywki pierwszego pudelka" << endl;
+    cout << "2 - otwarcie/zamkniecie pokrywki drugiego pudelka" << endl;
+    cout << "L - wlaczenie/wylaczenie glownego swiatla" << endl;
+    cout << "R - wlaczenie/wylaczenie reflektora" << endl;
+    cout << "+ - zwiekszenie intensywnosci glownego swiatla" << endl;
+    cout << "- - zmniejszenie intensywnosci glownego swiatla" << endl;
+    cout << "P - wlaczenie/wylaczenie automatycznej animacji pralki" << endl;
+    cout << "0 - wlaczenie/wylaczenie automatycznej animacji pudelka 1" << endl;
+    cout << "9 - wlaczenie/wylaczenie automatycznej animacji pudelka 2" << endl;
+    cout << endl;
+    cout << "Sterowanie rzutowaniem:" << endl;
+    cout << "V - przelaczanie miedzy rzutowaniem perspektywicznym a rownoleglym" << endl;
+    cout << "PAGE_UP - zwiekszanie kata widzenia (FOV) lub skali" << endl;
+    cout << "PAGE_DOWN - zmniejszanie kata widzenia (FOV) lub skali" << endl;
+    cout << endl;
+    cout << "Gdy animacja pralki jest WYlaCZONA:" << endl;
+    cout << "  W/S - przesuniecie do przodu/tylu (os Z)" << endl;
+    cout << "  A/D - przesuniecie w lewo/prawo (os X)" << endl;
+    cout << "  Q/E - przesuniecie w gore/dol (os Y)" << endl;
+    cout << "  Strzalki GoRA/Dol - obrot wokol osi X" << endl;
+    cout << "  Strzalki LEWO/PRAWO - obrot wokol osi Y" << endl;
+    cout << "  Z/X - obrot wokol osi Z" << endl;
+    cout << endl;
+    cout << "Sterowanie kamera:" << endl;
+    cout << "F - wlaczenie/wylaczenie trybu kamery" << endl;
+    cout << "O - wlaczenie/wylaczenie trybu orbitalnego" << endl;
+    cout << "W/S - ruch do przodu/tylu (lub przybliżanie/oddalanie w trybie orbitalnym)" << endl;
+    cout << "A/D - ruch w lewo/prawo" << endl;
+    cout << "Q/E - ruch w gore/dol" << endl;
+    cout << "Strzalki - zmiana kierunku patrzenia" << endl;
+    cout << endl;
+    cout << "Sterowanie renderowaniem:" << endl;
+    cout << "F1 - wlaczenie/wylaczenie ukrywania powierzchni niewidocznych" << endl;
+    cout << "F2 - przelaczanie trybu ukrywania powierzchni (tylne/przednie/obie)" << endl;
+    cout << "F3 - wlaczenie/wylaczenie testowania glebi" << endl;
+    cout << "F4 - przelaczanie trybu testowania glebi" << endl;
+    cout << "F5 - zmiana kierunku nawijania wielokatow" << endl;
+    cout << "F6 - przelaczanie trybu wypelniania (pelny/szkielet/punkty)" << endl;
+    cout << "F7 - przelaczanie trybu cieniowania (plaskie/gladkie)" << endl;
+    aktualizujUstawieniaRenderowania();
+    while (!glfwWindowShouldClose(window))
+    {
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+        glViewport(0, 0, width, height);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Ustawienie macierzy projekcji
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+
+        // Wybor odpowiedniego rzutowania
+        if (rzutowaniePerspektywiczne) {
+            
+            float aspect = (float)width / (float)height;
+            float fovRad = fov * M_PI / 180.0f;
+            float nearHeight = 0.1f * tanf(fovRad / 2.0f);
+            float nearWidth = nearHeight * aspect;
+
+            glFrustum(-nearWidth, nearWidth, -nearHeight, nearHeight, 0.1f, 100.0f);
+        }
+        else {
+            // Rzutowanie rownolegle (ortogonalne)
+            float aspectRatio = (float)width / (float)height;
+            float orthoWidth = skalaRzutuRownolegego;
+            float orthoHeight = orthoWidth / aspectRatio;
+            glOrtho(-orthoWidth, orthoWidth, -orthoHeight, orthoHeight, 0.1f, 100.0f);
+        }
+
+        // Reszta kodu - ustawienie macierzy modelwidok itd.
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        // Domyslnie wlaczamy culling dla optymalizacji
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);  // Odcinamy tylne sciany wielokatow
+
+        glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
+
+        display();
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    glfwTerminate();
+    return 0;
+}
