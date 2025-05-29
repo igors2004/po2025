@@ -1,0 +1,65 @@
+#include <iostream>
+#include <stdlib.h>
+#include <omp.h>
+
+#include "f1.h" // Wersja scalar_add
+#include "f2.h" // Wersja sse_add
+#include "f3.h" // Wersja avx_add
+#include "f4.h" // Wersja avx512_add
+
+int main() {
+    const int n = 1024*1024*1024; // Rozmiar danych
+
+    // Dynamiczne przydzielenie pamięci na dane
+    float *t0 = (float*)aligned_alloc(64, n * sizeof(float));
+    float *t1 = (float*)aligned_alloc(64, n * sizeof(float));
+    float *t2 = (float*)aligned_alloc(64, n * sizeof(float));
+
+    // Inicjalizacja danych
+    for(int i = 0; i < n; ++i) {
+        t0[i] = i * 1.0f;
+        t1[i] = i * 3.0f;
+        t2[i] = 0.0f;
+    }
+
+    double time;
+
+    // Pomiar czasu dla funkcji scalar_add (wersja podstawowa)
+    time = omp_get_wtime();
+    for(int i = 0; i < n; ++i) {
+        scalar_add(t0[i], t1[i], t2[i]);
+    }
+    time = omp_get_wtime() - time;
+    std::cout << "Czas wykonania (scalar_add): " << time << " s" << std::endl;
+
+    // Pomiar czasu dla funkcji sse_add
+    time = omp_get_wtime();
+    for(int i = 0; i < n; ++i) {
+        sse_add(t0[i], t1[i], t2[i]);
+    }
+    time = omp_get_wtime() - time;
+    std::cout << "Czas wykonania (sse_add): " << time << " s" << std::endl;
+
+    // Pomiar czasu dla funkcji avx_add
+    time = omp_get_wtime();
+    for(int i = 0; i < n; ++i) {
+        avx_add(t0[i], t1[i], t2[i]);
+    }
+    time = omp_get_wtime() - time;
+    std::cout << "Czas wykonania (avx_add): " << time << " s" << std::endl;
+
+    // Pomiar czasu dla funkcji avx512_add
+    time = omp_get_wtime();
+    for(int i = 0; i < n; ++i) {
+        avx512_add(t0[i], t1[i], t2[i]);
+    }
+    time = omp_get_wtime() - time;
+    std::cout << "Czas wykonania (avx512_add): " << time << " s" << std::endl;
+
+    // Zwolnienie pamięci
+    free(t0);
+    free(t1);
+    free(t2);
+
+    return 0;
+}
